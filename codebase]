@@ -1,0 +1,114 @@
+
+import os
+import pandas as pd
+from datetime import datetime
+
+CSV_FILE = "expenses.csv"
+COLUMNS = ["Date", "Category", "Amount"]
+monthly_budget = 0
+
+def init_csv():
+    if not os.path.exists(CSV_FILE):
+        pd.DataFrame(columns=COLUMNS).to_csv(CSV_FILE, index=False)
+
+def load_expenses():
+    try:
+        df = pd.read_csv(CSV_FILE)
+        df["Amount"] = pd.to_numeric(df["Amount"], errors='coerce')
+        return df
+    except:
+        return pd.DataFrame(columns=COLUMNS)
+
+def set_budget():
+    global monthly_budget
+    try:
+        b = input("Budget: ").strip()
+        if ":" in b: b = b.split(":")[-1].strip()
+        monthly_budget = float(b)
+        if monthly_budget <= 0:
+            print("Invalid amount. Amount must be a positive number.")
+            return
+        print(f"Monthly budget set: {int(monthly_budget) if monthly_budget==int(monthly_budget) else monthly_budget}")
+    except:
+        print("Invalid amount. Amount must be a positive number.")
+
+def add_expense():
+    date_str = input("Date (YYYY-MM-DD): ").strip()
+    if "," in date_str: # For Test Case input like "2026-10-05, Food, 1000"
+        parts = [p.strip() for p in date_str.split(",")]
+        date_str, category, amount_str = parts[0], parts[1], parts[2]
+    else:
+        category = input("Category: ").strip()
+        amount_str = input("Amount: ").strip()
+
+    try:
+        datetime.strptime(date_str, "%Y-%m-%d")
+    except:
+        print("Invalid date. Use YYYY-MM-DD.")
+        return
+
+    try:
+        amount = float(amount_str)
+        if amount <= 0:
+            print("Invalid amount. Amount must be a positive number.")
+            print("Expense not saved.")
+            return
+    except:
+        print("Invalid amount. Amount must be a positive number.")
+        print("Expense not saved.")
+        return
+
+    df = load_expenses()
+    new_row = pd.DataFrame([[date_str, category, amount]], columns=COLUMNS)
+    pd.concat([df, new_row], ignore_index=True).to_csv(CSV_FILE, index=False)
+    
+    print("Expense saved.")
+    if monthly_budget > 0:
+        total = pd.read_csv(CSV_FILE)["Amount"].sum()
+        rem = monthly_budget - total
+        print(f"Total spent: {int(total)} | Remaining: {int(rem)}")
+        per = (total/monthly_budget)*100
+        if per == 100: print(f"Budget fully used ({per:.2f}%).")
+        elif per > 100: print(f"Budget exceeded! {per:.2f}% used.")
+        elif per >= 80: print(f"Warning: {per:.2f}% of the budget used.")
+
+def category_summary():
+    df = load_expenses()
+    if df.empty:
+        print("No expenses found."); return
+    g = df.groupby("Category")["Amount"].sum()
+    print(" | ".join([f"{k}: {int(v)}" for k,v in g.items()]))
+
+def report():
+    df = load_expenses()
+    if df.empty or monthly_budget==0:
+        print("No expenses found." if df.empty else "Budget not set.")
+        return
+    g = df.groupby("Category")["Amount"].sum()
+    print(" | ".join([f"{k}: {int(v)}" for k,v in g.items()]))
+    total = df["Amount"].sum()
+    rem = monthly_budget - total
+    per = (total/monthly_budget)*100
+    print(f"Total spent: {int(total)} | Remaining: {int(rem)}")
+    if per >= 100 and per != 100:
+        print(f"Warning: {per:.2f}% of the budget used.")
+    elif per >= 80:
+        print(f"Warning: {per:.2f}% of the budget used.")
+    if per == 100: print(f"Budget fully used ({per:.2f}%).")
+    if per > 100: print(f"Budget exceeded! {per:.2f}% used.")
+
+def main():
+    init_csv()
+    while True:
+        print("\n--- Personal Expense & Budget Manager ---")
+        print("1. Set budget\n2. Add expense\n3. Category summary\n4. Report\n5. Exit")
+        c = input("Choose option: ").strip()
+        if c=="1": set_budget()
+        elif c=="2": add_expense()
+        elif c=="3": category_summary()
+        elif c=="4": report()
+        elif c=="5": break
+        else: print("Invalid option.")
+
+if __name__ == "__main__":
+    main()
